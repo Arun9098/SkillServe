@@ -1,4 +1,8 @@
 const userModel = require("../models/userModel");
+const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 const {
   isValid,
   isValidName,
@@ -6,19 +10,26 @@ const {
   isValidEmail,
   isValidPassword,
 } = require("../utils/validator");
-const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
-const saltRounds = 10;
+
+// Signunp User
 const signupUser = async (req, res) => {
   try {
     let userData = req.body;
 
-    if (Object.keys(userData).length === 0) {
+    if (!userData || Object.keys(userData).length === 0) {
       return res.status(400).json({ msg: "Bad Request!! No Data Provided" });
     }
 
-    let { name, email, phone, password, role } = userData;
-    // Name Validation
+    let { name, email, phone, password,authProvider} = userData;
+    // Auth Provider
+    if (!isValid(authProvider)) {
+      return res.status(400).json({ msg: "AuthProvider is required" });
+    }
+    if(!["google","phone","manual"].includes(authProvider)){
+      return res.status(400).json({msg: "Invalid AuthProvider"})
+    }
+    if(authProvider === "manual"){
+      // Name Validation
     if (!isValid(name)) {
       return res.status(400).json({ msg: "name is required" });
     }
@@ -48,33 +59,91 @@ const signupUser = async (req, res) => {
       return res.status(400).json({ msg: "Phone Number Already Exist" });
     }
     // Password Validation
+    if (!isValid(password)) {
+      return res.status(400).json({ msg: "Phone Number is required" });
+    }
     if (!isValidPassword(password)) {
       return res.status(400).json({ msg: "Invalid Password" });
     }
     let hashedPassword = await bcrypt.hash(password, saltRounds);
     userData.password = hashedPassword;
-    // Role Validation
-    if (!isValid(role)) {
-      return res.status(400).json({ msg: "Role is required" });
+    
+   
     }
-    const roles = ["user", "provider", "admin"];
-    if (!roles.includes(role)) {
-      return res
-        .status(400)
-        .json({ msg: "Invalid role. Allowed roles are user, provider, admin" });
-    }
-    // Profile Image Validation
-
+    
     // Create User
-    const createUser = await userModel.create(userData);
+    const createdUser = await userModel.create(userData);
     return res
       .status(201)
-      .json({ msg: "User SigneUp SuccessFully", user: createUser });
+      .json({ msg: "User Registered SuccessFully", user: createdUser });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ msg: "Internal Server Error" });
   }
 };
+
+// Login User
+const loginUser = async (req,res)=>{
+  try {
+    let userData = req.body;;
+    if(Object.keys(userData).length === 0){
+      return res.status(400).json({msg: "Bad Request !! No Data Provided"});
+    }
+    let {email,password} = userData;
+    // Email Validation
+    if (!isValid(email)) {
+      return res.status(400).json({ msg: "Email is required" });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ msg: "Invalid Email" });
+    }
+    let user = await userModel.findOne({email});
+    if(!user){
+      return res.status(404).json({msg: "User Not Found"})
+    }
+    // Password Validation
+    if (!isValid(password)) {
+      return res.status(400).json({ msg: "Phone Number is required" });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ msg: "Invalid Password" });
+    }
+
+    let matchedPassword =  bcrypt.compare(password,user.password);
+
+    if(!matchedPassword){
+      return res.status(400).json({msg: "Invalid Password"})
+    }
+
+    let token = jwt.sign({userId : user._id},"SkilServe",{expiresIn: "24h"})
+
+    return res.status(200).json({msg: "Login Successfull",token})
+    
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({msg: "Internal Server Error"})
+  }
+}
+
+// OTP Login
+const otpLogin = async (req,res)=>{
+  try {
+    
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({msg: "Internal Server Error"})
+  }
+}
+
+// Google Login
+const googleLogin = async (req,res)=>{
+  try {
+    
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({msg: "Internal Server Error"})
+  }
+}
 
 // Get User Profile
 const getUserProfile = async (req, res) => {
@@ -94,7 +163,7 @@ const getUserProfile = async (req, res) => {
   }
 };
 
-// Get All Profile
+// Get All Profile (Admin,Provider)
 const getAllProfiles = async (req, res) => {
   try {
     let Users = await userModel.find();
@@ -217,10 +286,33 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// Change Password
+const changePassword = async (req,res)=>{
+  try {
+    
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({msg: "Internal Server Error"})
+  }
+}
+
+// Block Unblock User (Admin);
+const blockUnblockUser = async (req,res)=>{
+  try {
+    
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({msg: "Internal Server Error"})
+  }
+}
 module.exports = {
   signupUser,
+  loginUser,
+  otpLogin,
+  googleLogin,
   getUserProfile,
   getAllProfiles,
   updateUser,
-  deleteUser
+  deleteUser,
+  changePassword
 };
