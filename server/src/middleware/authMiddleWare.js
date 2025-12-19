@@ -1,26 +1,30 @@
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
+const userModel = require("../models/userModel");
 
-const auth = async (req,res,next) =>{
+const authentication = async (req, res, next) => {
   try {
     let token = req.headers["Authorization"];
-   if(!token){
-    return res.status(400).json({msg: "Token is Required"});
-   }
-   token = token.split(" ")[1];
-   jwt.verify(token,"SkillServe",(err,decoded)=>{
-    if(err){
-        return res.status(401).json({msg: "Invalid or Expired Token"})
+    if (!token) {
+      return res.status(400).json({ msg: "Authorization Token is Required" });
     }
-    req.userId = decoded.userId;
-    next()
-   });
-    
+
+    if (token.startsWith("Bearer ")) {
+      token = token.split(" ")[1];
+    }
+
+    let decodedToken = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    if (!decodedToken) {
+      return res.status(401).json({ msg: "Invalid or Expired Token" });
+    }
+    let user = await userModel.findById(decodedToken.userId);
+    req.userId = decodedToken.userId;
+    req.userRole = user.role;
+    next();
   } catch (error) {
-    console.log(error)
-    return res.status(500).json({msg: "Internal Server Error"})
+    console.log(error);
+    return res.status(500).json({ msg: "Internal Server Error" });
   }
+};
 
-}
-
-module.exports = auth
+module.exports = authentication;

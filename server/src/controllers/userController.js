@@ -25,8 +25,13 @@ const signupUser = async (req, res) => {
     if (!isValid(authProvider)) {
       return res.status(400).json({ msg: "AuthProvider is required" });
     }
+
     if(!["google","phone","manual"].includes(authProvider)){
       return res.status(400).json({msg: "Invalid AuthProvider"})
+    }
+
+    if(authProvider !== "manual"){
+      return res.status(400).json({msg: "Use Respective login API for google or OTP Authentication"})
     }
     if(authProvider === "manual"){
       // Name Validation
@@ -89,7 +94,14 @@ const loginUser = async (req,res)=>{
     if(Object.keys(userData).length === 0){
       return res.status(400).json({msg: "Bad Request !! No Data Provided"});
     }
-    let {email,password} = userData;
+    let {email,password,authProvider} = userData;
+    if(!authProvider){
+      return res.status(400).json({ msg: "AuthProvider is required" });
+    }
+    if(authProvider !== "manual"){
+      return res.status(400).json({msg: "Use Respective login API for google or OTP Authentication"})
+    }
+
     // Email Validation
     if (!isValid(email)) {
       return res.status(400).json({ msg: "Email is required" });
@@ -97,25 +109,26 @@ const loginUser = async (req,res)=>{
     if (!isValidEmail(email)) {
       return res.status(400).json({ msg: "Invalid Email" });
     }
-    let user = await userModel.findOne({email});
+
+    // Password Validation
+    if (!isValid(password)) {
+      return res.status(400).json({ msg: "Password Number is required" });
+    }
+    let user = await userModel.findOne({email}).select("+password"); 
     if(!user){
       return res.status(404).json({msg: "User Not Found"})
     }
-    // Password Validation
-    if (!isValid(password)) {
-      return res.status(400).json({ msg: "Phone Number is required" });
-    }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ msg: "Invalid Password" });
+    if(user.authProvider !== "manual"){
+      return res.status(400).json({msg:`This Email is Registered using ${authProvider} login`})
     }
 
-    let matchedPassword =  bcrypt.compare(password,user.password);
+    let matchedPassword = await bcrypt.compare(password,user.password);
 
     if(!matchedPassword){
-      return res.status(400).json({msg: "Invalid Password"})
+      return res.status(401).json({msg: "Incorrect Password"})
     }
 
-    let token = jwt.sign({userId : user._id},"SkilServe",{expiresIn: "24h"})
+    let token = jwt.sign({userId : user._id, role: user.role},"SkilServe",{expiresIn: "24h"})
 
     return res.status(200).json({msg: "Login Successfull",token})
     
@@ -183,7 +196,7 @@ const updateUser = async (req, res) => {
   try {
     let id = req.params.id;
     userData = req.body;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!userData ||!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ msg: "Invalid Id" });
     }
 
