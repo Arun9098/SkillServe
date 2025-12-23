@@ -20,62 +20,62 @@ const signupUser = async (req, res) => {
       return res.status(400).json({ msg: "Bad Request!! No Data Provided" });
     }
 
-    let { name, email, phone, password,authProvider} = userData;
+    let { name, email, phone, password, authProvider } = userData;
     // Auth Provider
     if (!isValid(authProvider)) {
       return res.status(400).json({ msg: "AuthProvider is required" });
     }
 
-    if(!["google","phone","manual"].includes(authProvider)){
-      return res.status(400).json({msg: "Invalid AuthProvider"})
+    if (!["google", "phone", "manual"].includes(authProvider)) {
+      return res.status(400).json({ msg: "Invalid AuthProvider" });
     }
 
-    if(authProvider !== "manual"){
-      return res.status(400).json({msg: "Use Respective login API for google or OTP Authentication"})
+    if (authProvider !== "manual") {
+      return res.status(400).json({
+        msg: "Use Respective login API for google or OTP Authentication",
+      });
     }
-    if(authProvider === "manual"){
+    if (authProvider === "manual") {
       // Name Validation
-    if (!isValid(name)) {
-      return res.status(400).json({ msg: "name is required" });
+      if (!isValid(name)) {
+        return res.status(400).json({ msg: "name is required" });
+      }
+      if (!isValidName(name)) {
+        return res.status(400).json({ msg: "Invalid Name" });
+      }
+      // Email Validation
+      if (!isValid(email)) {
+        return res.status(400).json({ msg: "email is required" });
+      }
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ msg: "Invalid Email" });
+      }
+      let duplicateEmail = await userModel.findOne({ email });
+      if (duplicateEmail) {
+        return res.status(400).json({ msg: "Email Already Exist" });
+      }
+      // Phone Validation
+      if (!isValid(phone)) {
+        return res.status(400).json({ msg: "Phone Number is required" });
+      }
+      if (!isValidPhone(phone)) {
+        return res.status(400).json({ msg: "Invalid Phone Number" });
+      }
+      let duplicatePhone = await userModel.findOne({ phone });
+      if (duplicatePhone) {
+        return res.status(400).json({ msg: "Phone Number Already Exist" });
+      }
+      // Password Validation
+      if (!isValid(password)) {
+        return res.status(400).json({ msg: "Phone Number is required" });
+      }
+      if (!isValidPassword(password)) {
+        return res.status(400).json({ msg: "Invalid Password" });
+      }
+      let hashedPassword = await bcrypt.hash(password, saltRounds);
+      userData.password = hashedPassword;
     }
-    if (!isValidName(name)) {
-      return res.status(400).json({ msg: "Invalid Name" });
-    }
-    // Email Validation
-    if (!isValid(email)) {
-      return res.status(400).json({ msg: "email is required" });
-    }
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ msg: "Invalid Email" });
-    }
-    let duplicateEmail = await userModel.findOne({ email });
-    if (duplicateEmail) {
-      return res.status(400).json({ msg: "Email Already Exist" });
-    }
-    // Phone Validation
-    if (!isValid(phone)) {
-      return res.status(400).json({ msg: "Phone Number is required" });
-    }
-    if (!isValidPhone(phone)) {
-      return res.status(400).json({ msg: "Invalid Phone Number" });
-    }
-    let duplicatePhone = await userModel.findOne({ phone });
-    if (duplicatePhone) {
-      return res.status(400).json({ msg: "Phone Number Already Exist" });
-    }
-    // Password Validation
-    if (!isValid(password)) {
-      return res.status(400).json({ msg: "Phone Number is required" });
-    }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ msg: "Invalid Password" });
-    }
-    let hashedPassword = await bcrypt.hash(password, saltRounds);
-    userData.password = hashedPassword;
-    
-   
-    }
-    
+
     // Create User
     const createdUser = await userModel.create(userData);
     return res
@@ -88,18 +88,20 @@ const signupUser = async (req, res) => {
 };
 
 // Login User
-const loginUser = async (req,res)=>{
+const loginUser = async (req, res) => {
   try {
-    let userData = req.body;;
-    if(Object.keys(userData).length === 0){
-      return res.status(400).json({msg: "Bad Request !! No Data Provided"});
+    let userData = req.body;
+    if (Object.keys(userData).length === 0) {
+      return res.status(400).json({ msg: "Bad Request !! No Data Provided" });
     }
-    let {email,password,authProvider} = userData;
-    if(!authProvider){
+    let { email, password, authProvider } = userData;
+    if (!authProvider) {
       return res.status(400).json({ msg: "AuthProvider is required" });
     }
-    if(authProvider !== "manual"){
-      return res.status(400).json({msg: "Use Respective login API for google or OTP Authentication"})
+    if (authProvider !== "manual") {
+      return res.status(400).json({
+        msg: "Use Respective login API for google or OTP Authentication",
+      });
     }
 
     // Email Validation
@@ -114,62 +116,68 @@ const loginUser = async (req,res)=>{
     if (!isValid(password)) {
       return res.status(400).json({ msg: "Password Number is required" });
     }
-    let user = await userModel.findOne({email}).select("+password"); 
-    if(!user){
-      return res.status(404).json({msg: "User Not Found"})
+    let user = await userModel.findOne({ email }).select("+password");
+    if (!user) {
+      return res.status(404).json({ msg: "User Not Found" });
     }
-    if(user.authProvider !== "manual"){
-      return res.status(400).json({msg:`This Email is Registered using ${authProvider} login`})
-    }
-
-    let matchedPassword = await bcrypt.compare(password,user.password);
-
-    if(!matchedPassword){
-      return res.status(401).json({msg: "Incorrect Password"})
+    if (user.authProvider !== "manual") {
+      return res
+        .status(400)
+        .json({ msg: `This Email is Registered using ${authProvider} login` });
     }
 
-    let token = jwt.sign({userId : user._id, role: user.role},"SkilServe",{expiresIn: "24h"})
+    let matchedPassword = await bcrypt.compare(password, user.password);
 
-    return res.status(200).json({msg: "Login Successfull",token})
-    
+    if (!matchedPassword) {
+      return res.status(401).json({ msg: "Incorrect Password" });
+    }
+
+    let token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: "24hr" }
+    );
+
+    return res.status(200).json({ msg: "Login Successfull", token });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({msg: "Internal Server Error"})
+    return res.status(500).json({ msg: "Internal Server Error" });
   }
-}
+};
 
 // OTP Login
-const otpLogin = async (req,res)=>{
+const otpLogin = async (req, res) => {
   try {
-    
   } catch (error) {
     console.log(error);
-    return res.status(500).json({msg: "Internal Server Error"})
+    return res.status(500).json({ msg: "Internal Server Error" });
   }
-}
+};
 
 // Google Login
-const googleLogin = async (req,res)=>{
+const googleLogin = async (req, res) => {
   try {
-    
   } catch (error) {
     console.log(error);
-    return res.status(500).json({msg: "Internal Server Error"})
+    return res.status(500).json({ msg: "Internal Server Error" });
   }
-}
+};
 
 // Get User Profile
 const getUserProfile = async (req, res) => {
   try {
-    let id = req.params.id;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ msg: "Invalid Id" });
+    let id = req.userId;
+    if (!id) {
+      return res.status(400).json({ msg: "User Id is required" });
     }
-    const user = await userModel.findById(id);
+
+    const user = await userModel.findById(id).select("-password");
     if (!user) {
       return res.status(404).json({ msg: "User Not Found" });
     }
-    return res.status(200).json({ user });
+    return res
+      .status(200)
+      .json({ msg: "User Profile Fetched SuccessFully", user });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ msg: "Internal Server Error" });
@@ -179,11 +187,23 @@ const getUserProfile = async (req, res) => {
 // Get All Profile (Admin,Provider)
 const getAllProfiles = async (req, res) => {
   try {
-    let Users = await userModel.find();
-    if (Object.keys(Users).length === 0) {
-      return res.status(404).json("No User Found");
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ msg: "Access Denied!! Admin Only" });
     }
-    return res.status(200).json({ Users });
+    let users = await userModel
+      .find()
+      .select("-password")
+      .sort({ createdAt: -1 });
+    if (!users || users.length === 0) {
+      return res.status(404).json({ msg: "No Users Found" });
+    }
+    return res
+      .status(200)
+      .json({
+        msg: "Users Fetched SuccessFully",
+        totalUsers: users.length,
+        data: users,
+      });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ msg: "Internal Server Error" });
@@ -194,73 +214,50 @@ const getAllProfiles = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    let id = req.params.id;
+    let id = req.userId;
     userData = req.body;
-    if (!userData ||!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ msg: "Invalid Id" });
-    }
-
     if (Object.keys(userData).length === 0) {
       return res.status(400).json({ msg: "Bad Request ! No Data Provided." });
     }
 
-    let { name, email, phone, password, role } = userData;
-    // Name Validation
-    if (name !== undefined) {
-      if (!isValid(phone)) {
-        return res.status(400).json({ msg: "Phone Number is required" });
+    let { name, email, phone, authProvider } = userData;
+    if (authProvider === "manual") {
+      // Name Validation
+      if (name !== undefined) {
+        if (!isValid(phone)) {
+          return res.status(400).json({ msg: "Phone Number is required" });
+        }
+        if (!isValidPhone(phone)) {
+          return res.status(400).json({ msg: "Invalid Phone Number" });
+        }
       }
-      if (!isValidPhone(phone)) {
-        return res.status(400).json({ msg: "Invalid Phone Number" });
+      // Email Validation
+      if (email !== undefined) {
+        if (!isValid(email)) {
+          return res.status(400).json({ msg: "email is required" });
+        }
+        if (!isValidEmail(email)) {
+          return res.status(400).json({ msg: "Invalid Email" });
+        }
+        let duplicateEmail = await userModel.findOne({ email });
+        if (duplicateEmail) {
+          return res.status(400).json({ msg: "Email Already Exist" });
+        }
       }
-    }
-    // Email Validation
-    if (email !== undefined) {
-      if (!isValid(email)) {
-        return res.status(400).json({ msg: "email is required" });
-      }
-      if (!isValidEmail(email)) {
-        return res.status(400).json({ msg: "Invalid Email" });
-      }
-      let duplicateEmail = await userModel.findOne({ email });
-      if (duplicateEmail) {
-        return res.status(400).json({ msg: "Email Already Exist" });
-      }
-    }
-    // Phone Validation
-    if (phone !== undefined) {
-      if (!isValid(phone)) {
-        return res.status(400).json({ msg: "Contact Number is Required" });
-      }
+      // Phone Validation
+      if (phone !== undefined) {
+        if (!isValid(phone)) {
+          return res.status(400).json({ msg: "Contact Number is Required" });
+        }
 
-      if (!isValidContact(phone)) {
-        return res.status(400).json({ msg: "Invalid Contact Number" });
-      }
+        if (!isValidContact(phone)) {
+          return res.status(400).json({ msg: "Invalid Contact Number" });
+        }
 
-      let duplicatePhone = await userModel.findOne({ phone });
-      if (duplicatePhone) {
-        return res.status(400).json({ msg: "Contact Number Already Exists" });
-      }
-    }
-    // Password Validation
-    if (password !== undefined) {
-      if (!isValidPassword(password)) {
-        return res.status(400).json({ msg: "Invalid Password" });
-      }
-      // Password encryption
-      let hashedPassword = await bcrypt.hash(password, saltRounds);
-      userData.password = hashedPassword;
-    }
-    // Role Validation
-    if (role !== undefined) {
-      if (!isValid(role)) {
-        return res.status(400).json({ msg: "Role is required" });
-      }
-      const roles = ["user", "provider", "admin"];
-      if (!roles.includes(role)) {
-        return res.status(400).json({
-          msg: "Invalid role. Allowed roles are user, provider, admin",
-        });
+        let duplicatePhone = await userModel.findOne({ phone });
+        if (duplicatePhone) {
+          return res.status(400).json({ msg: "Contact Number Already Exists" });
+        }
       }
     }
     // Update
@@ -282,7 +279,7 @@ const updateUser = async (req, res) => {
 // Delete User
 const deleteUser = async (req, res) => {
   try {
-    let id = req.params.id;
+    let id = req.params.id || req.userId;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ msg: "Invalid Id" });
     }
@@ -300,24 +297,67 @@ const deleteUser = async (req, res) => {
 };
 
 // Change Password
-const changePassword = async (req,res)=>{
+const changePassword = async (req, res) => {
   try {
-    
+    let userId = req.userId;
+    let {oldPassword,newPassword} = req.body;
+    if(!isValid(oldPassword)){
+      return res.status(400).json({msg: "Old Password is Required"});
+    }
+    if(!isValid(newPassword)){
+      return res.status(400).json({msg: "New Password is Required"});
+    }
+    if(!isValidPassword(newPassword)){
+      return res.status(400).json({msg: "Invalid New Password"});
+    }
+    let user = await userModel.findById(userId).select("+password");
+    if(!user){
+      return res.status(404).json({msg: "User Not Found"});
+    }
+    if(user.authProvider !== "manual"){
+      return res.status(400).json({msg: "Password Change is allowed only for manual login users."})
+    }
+    let passwordMatch = await bcrypt.compare(oldPassword,user.password);
+    if(!passwordMatch){
+      return res.status(401).json({msg: "Old Password is Incorrect"});
+    }
+    let hashedNewPassword = await bcrypt.hash(newPassword,10);
+    user.password = hashedNewPassword;
+    await user.save();
+    return res.status(200).json({msg: "Password Changed SuccessFully"})
   } catch (error) {
     console.log(error);
-    return res.status(500).json({msg: "Internal Server Error"})
+    return res.status(500).json({ msg: "Internal Server Error" });
   }
-}
+};
 
 // Block Unblock User (Admin);
-const blockUnblockUser = async (req,res)=>{
+const blockUnblockUser = async (req, res) => {
   try {
-    
+    let userId = req.params.userId;
+    let { isBlocked } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ msg: "Invalid Id" });
+    }
+
+    if(typeof(isBlocked) !== "boolean"){
+      return res.status(400).json({msg: "isBlocked must be a Boolean Value"});
+    }
+    let user = await userModel.findById(userId);
+    if(!user){
+      return res.status(404).json({msg: "User Not Found"});
+    }
+    if(user.role === "admin"){
+      return res.status(403).json({msg: "Admin Cannot be Blocked"})
+    }
+    user.isBlocked = isBlocked;
+    await user.save();
+    return res.status(200).json({msg: `User ${isBlocked ? "Blocked" : "Unblocked"} SuccessFully`})
   } catch (error) {
     console.log(error);
-    return res.status(500).json({msg: "Internal Server Error"})
+    return res.status(500).json({ msg: "Internal Server Error" });
   }
-}
+};
 module.exports = {
   signupUser,
   loginUser,
@@ -327,5 +367,6 @@ module.exports = {
   getAllProfiles,
   updateUser,
   deleteUser,
-  changePassword
+  changePassword,
+  blockUnblockUser
 };

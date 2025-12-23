@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-// let auth = require("../middleware/authMiddleWare")
+let authentication = require("../middleware/authMiddleWare")
+let authorization = require("../middleware/authorization")
 const {
   signupUser,
   loginUser,
@@ -11,14 +12,18 @@ const {
   getAllProfiles,
   updateUser,
   deleteUser,
-  changePassword
+  changePassword,
+  blockUnblockUser
 } = require("../controllers/userController");
 
 router.post("/signup", signupUser);
 router.post("/login",loginUser)
-router.get("/user/:id", getUserProfile);
-router.get("/getAllUsers", getAllProfiles);
-router.put("/user/:id", updateUser);
-router.delete("/user/:id",deleteUser);
+router.get("/profile", authentication,getUserProfile);
+router.get("/getAllUsers",authentication,authorization("admin"), getAllProfiles);
+router.put("/user/:id",authentication, updateUser);
+router.delete("/deleteUser",authentication,deleteUser)
+router.delete("/user/:id",authentication,authorization("admin"),deleteUser);
+router.put("/user/block/:userId",authentication,authorization("admin"),blockUnblockUser)
+router.put("/changePassword",authentication,changePassword)
 
 module.exports = router;
